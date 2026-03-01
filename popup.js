@@ -5,6 +5,19 @@
 import { extractTopics } from './topicAnalyzer.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Wait for data scripts (rizz.js, sites.js) to be available
+  // They are non-module scripts, so they should be done before DOMContentLoaded.
+  // If somehow they're not ready, poll briefly.
+  let retries = 0;
+  while ((!window.RIZZ_DATA || !window.RIZZ_CATEGORIES || !window.SITES_DATA) && retries < 20) {
+    await new Promise(r => setTimeout(r, 50));
+    retries++;
+  }
+  if (!window.RIZZ_DATA || !window.RIZZ_CATEGORIES || !window.SITES_DATA) {
+    console.error('[Navigator] CRITICAL: Data scripts failed to load. Popup will not work.');
+    document.body.innerHTML = '<div style="padding:20px;color:#f87171;">Error: Extension data files failed to load. Please try reloading the extension.</div>';
+    return;
+  }
   const siteDisplay = document.getElementById('site-display');
   const statusBadge = document.getElementById('status-badge');
   const statusText = document.getElementById('current-status-text');
