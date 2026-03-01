@@ -1,0 +1,57 @@
+{
+  "manifest_version": 3,
+  "name": "LiveChat Navigator",
+  "version": "1.0.0",
+  "description": "Discover random video chat alternatives and find your next conversation.",
+  "permissions": [
+    "tabs",
+    "activeTab",
+    "storage",
+    "sidePanel",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "LiveChat Navigator"
+  },
+  "side_panel": {
+    "default_path": "popup.html"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://www.ometv.com/*",
+        "*://www.monkey.app/*",
+        "*://chatroulette.com/*",
+        "*://chatrandom.com/*",
+        "*://camsurf.com/*",
+        "*://www.emeraldchat.com/*",
+        "*://shagle.com/*",
+        "*://tinychat.com/*",
+        "*://minichat.com/*",
+        "*://uhmegle.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

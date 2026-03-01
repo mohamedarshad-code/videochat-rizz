@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LiveChat Navigator</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="top-alert-bar">
+    <div class="alert-icon">⚠️</div>
+    <div class="alert-text">Live: Trending topics updated from 200+ logs</div>
+    <div class="alert-actions">
+      <button class="alert-btn tiny">Details</button>
+      <button class="alert-btn tiny dismiss">OK</button>
+    </div>
+  </div>
+
+  <header>
+    <div class="logo-section">
+      <div class="title-row">
+        <h1>LiveChat Navigator v1.0.4</h1>
+        <span class="close-panel-hint">×</span>
+      </div>
+      <div class="header-tags">
+        <span class="tag-status">DETECTION MODE</span>
+        <span class="tag-version">BETA 2.0</span>
+      </div>
+      <p id="current-status-text">Scanning current tab for match...</p>
+    </div>
+    <div id="status-badge" class="status-indicator">STANDBY</div>
+    <div class="detection-toggle-wrapper">
+      <label class="switch">
+        <input type="checkbox" id="gender-detector-toggle">
+        <span class="slider round"></span>
+      </label>
+      <span class="detector-label">AI Scanner</span>
+    </div>
+  </header>
+
+  <div id="skip-controls" class="skip-settings">
+    <div class="section-label">Auto-Skip Filter</div>
+    <div class="skip-options">
+      <label class="skip-opt">
+        <input type="radio" name="skip-gender" value="none" checked> <span>Off</span>
+      </label>
+      <label class="skip-opt">
+        <input type="radio" name="skip-gender" value="male"> <span>Skip Men</span>
+      </label>
+      <label class="skip-opt">
+        <input type="radio" name="skip-gender" value="female"> <span>Skip Women</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="search-container">
+    <div class="search-box">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="var(--text-secondary)" viewBox="0 0 16 16">
+        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+      </svg>
+      <input type="text" id="site-search" placeholder="Search for video chats..." autocomplete="off">
+    </div>
+  </div>
+
+  <main>
+    <div id="loader">
+      <div class="spinner"></div>
+    </div>
+
+    <div class="tab-toggle">
+      <button id="tab-sites" class="active">Discover</button>
+      <button id="tab-rizz">Rizz</button>
+    </div>
+
+    <div id="trending-section" class="trending-container">
+      <div class="section-label">
+        <span>Trending Chat Topics</span>
+        <span class="live-badge">LIVE</span>
+      </div>
+      <div id="trending-topics" class="topic-pills">
+        <div class="topic-spinner"></div>
+      </div>
+    </div>
+
+    <div id="site-display" class="site-list content-tab active">
+      <!-- Cards will be injected here via JavaScript -->
+    </div>
+
+    <div id="rizz-display" class="rizz-list content-tab">
+      <div class="country-rizz-section">
+        <div class="section-label">Global Rizz</div>
+        <select id="country-select" class="country-dropdown">
+          <optgroup label="Popular">
+            <option value="en">🇺🇸 USA / UK / Global</option>
+            <option value="in">🇮🇳 India</option>
+            <option value="br">🇧🇷 Brazil</option>
+            <option value="mx">🇲🇽 Mexico</option>
+            <option value="ph">🇵🇭 Philippines</option>
+            <option value="tr">🇹🇷 Turkey</option>
+            <option value="ru">🇷🇺 Russia</option>
+          </optgroup>
+          <optgroup label="Europe">
+            <option value="fr">🇫🇷 France</option>
+            <option value="de">🇩🇪 Germany</option>
+            <option value="es">🇪🇸 Spain</option>
+            <option value="it">🇮🇹 Italy</option>
+            <option value="nl">🇳🇱 Netherlands</option>
+            <option value="pl">🇵🇱 Poland</option>
+            <option value="se">🇸🇪 Sweden</option>
+            <option value="ua">🇺🇦 Ukraine</option>
+          </optgroup>
+          <optgroup label="Asia & Oceania">
+            <option value="pk">🇵🇰 Pakistan</option>
+            <option value="id">🇮🇩 Indonesia</option>
+            <option value="vn">🇻🇳 Vietnam</option>
+            <option value="kr">🇰🇷 South Korea</option>
+            <option value="jp">🇯🇵 Japan</option>
+            <option value="th">🇹🇭 Thailand</option>
+            <option value="au">🇦🇺 Australia</option>
+            <option value="my">🇲🇾 Malaysia</option>
+            <option value="sg">🇸🇬 Singapore</option>
+          </optgroup>
+          <optgroup label="Middle East & Africa">
+            <option value="ar">🇦🇪 Arabic Nations</option>
+            <option value="ng">🇳🇬 Nigeria</option>
+            <option value="za">🇿🇦 South Africa</option>
+            <option value="eg">🇪🇬 Egypt</option>
+            <option value="sa">🇸🇦 Saudi Arabia</option>
+            <option value="il">🇮🇱 Israel</option>
+          </optgroup>
+          <optgroup label="Americas">
+            <option value="ca">🇨🇦 Canada</option>
+            <option value="ar_es">🇦🇷 Argentina</option>
+            <option value="co">🇨🇴 Colombia</option>
+            <option value="cl">🇨🇱 Chile</option>
+            <option value="pe">🇵🇪 Peru</option>
+          </optgroup>
+        </select>
+        <button id="get-country-rizz" class="primary small">Get Local Rizz</button>
+      </div>
+      <div id="rizz-categories" class="category-pills">
+        <!-- Pills injected by JS: All, Smooth, Funny, Bold, etc. -->
+      </div>
+      <div id="rizz-content" class="rizz-cards-container">
+        <!-- Rizz cards injected via JavaScript -->
+      </div>
+    </div>
+
+    <div id="empty-view" class="empty-state" style="display: none;">
+      <h3>Looking for something?</h3>
+      <p>Explore these popular random video chat platforms below.</p>
+    </div>
+
+    <div class="controls">
+      <button id="refresh-btn" title="Reshuffle selection">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/>
+          <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/>
+        </svg>
+        <span>Shuffle</span>
+      </button>
+      <button id="new-set-btn" class="primary" title="Load new subset">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M11 6.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1z"/>
+          <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
+        </svg>
+        <span>New Set</span>
+      </button>
+    </div>
+  </main>
+
+  <footer class="footer">
+    LiveChat Navigator © 2026. Made for discovery.
+  </footer>
+
+  <script src="sites.js"></script>
+  <script src="rizz.js"></script>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
