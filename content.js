@@ -201,7 +201,6 @@
                     ip === '0.0.0.0' || ip.startsWith('127.');
     if (!isLocal && ip !== currentIp) {
       currentIp = ip;
-      updateIpDisplay(ip);
       geolocate(ip);
     }
   }
@@ -210,7 +209,6 @@
 
   async function loadModels() {
     if (modelsLoaded) return true;
-    updateAiStatusUI('Loading AI...');
     try {
       const MODEL_URL = chrome.runtime.getURL('models');
       await Promise.all([
@@ -222,7 +220,6 @@
       return true;
     } catch (err) {
       console.error('[Navigator] Model load failed:', err);
-      updateAiStatusUI('AI Load Error', true);
       return false;
     }
   }
@@ -231,7 +228,6 @@
     if (detectionInterval) return;
     const ok = await loadModels();
     if (!ok) return;
-    updateAiStatusUI('ON (Scanning...)');
     detectionInterval = setInterval(() => runDetection(), 3000);
   }
 
@@ -244,7 +240,6 @@
 
   function stopDetectionLoop() {
     if (detectionInterval) { clearInterval(detectionInterval); detectionInterval = null; }
-    updateAiStatusUI('OFF');
   }
 
   async function runDetection() {
@@ -272,7 +267,7 @@
   }
 
   async function runSubFrameDetection() {
-    if (isProcessing || !detectorEnabled || skipPreference === 'none') return;
+    if (isProcessing || !detectorEnabled) return;
     const video = findRemoteVideo();
     if (!video) return;
     isProcessing = true;
@@ -308,42 +303,10 @@
 
   // ─── IP & GEOLOCATION ─────────────────────────────────────────────────────────
 
-  function updateIpDisplay(ip) {
-    const el = document.getElementById('nav-ip-info');
-    if (el) el.innerHTML = `<span class="nav-label">IP Address:</span> <span class="nav-value">${ip}</span>`;
-  }
-
   function geolocate(ip) {
-    chrome.runtime.sendMessage({ type: 'GEOLOCATE_IP', ip }, (data) => {
-      if (data && data.status !== 'fail') {
-        const geoEl = document.getElementById('nav-geo-info');
-        if (geoEl) {
-          geoEl.innerHTML = `
-            <div><span class="nav-label">Location:</span> <span class="nav-value">${data.city}, ${data.country}</span></div>
-            <div><span class="nav-label">ISP:</span> <span class="nav-value">${data.isp}</span></div>
-          `;
-        }
-        fetchRizz(data.countryCode.toLowerCase());
-      }
+    chrome.runtime.sendMessage({ type: 'GEOLOCATE_IP', ip }, () => {
+      // Nothing else needed: background.js handles the cache and popup.js polls it.
     });
-  }
-
-  function fetchRizz(countryCode) {
-    chrome.runtime.sendMessage({ type: 'GET_COUNTRY_RIZZ', lang: countryCode }, (lines) => {
-      const rizzEl = document.getElementById('nav-rizz-suggestion');
-      if (rizzEl && lines && lines.length > 0) {
-        const line = lines[Math.floor(Math.random() * lines.length)];
-        rizzEl.innerHTML = `<div class="nav-header" style="margin-top:10px;color:#fb7185">Rizz Tip</div><div style="font-style:italic">${line}</div>`;
-      }
-    });
-  }
-
-  function updateAiStatusUI(text, isResult = false) {
-    const el = document.getElementById('ai-state-text');
-    if (!el) return;
-    el.textContent = text;
-    el.className = isResult ? 'ai-detected' : 'ai-scanning';
-    if (text === 'OFF') el.className = '';
   }
 
 })();
