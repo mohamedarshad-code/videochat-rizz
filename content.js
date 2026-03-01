@@ -31,9 +31,9 @@
     siteConfig = window.getSiteConfig ? window.getSiteConfig() : null;
     if (!siteConfig) return;
 
-    console.log(`[Navigator] Initialized for ${siteConfig.name}`);
+    console.log(`[Navigator] Initialized for ${siteConfig.name} in frame ${window.location.href}`);
     
-    // Inject ICE Interceptor
+    // Inject ICE Interceptor unconditionally so we catch WeRTC anywhere
     const script = document.createElement('script');
     script.src = chrome.runtime.getURL('inject.js');
     script.onload = () => script.remove();
@@ -43,13 +43,36 @@
     chrome.storage.local.get(['detectorEnabled', 'skipPreference'], (res) => {
       detectorEnabled = res.detectorEnabled || false;
       skipPreference = res.skipPreference || 'none';
-      if (detectorEnabled) startDetectionLoop();
+      // Do not start detection yet.
     });
 
-    setupHotkeys();
     setupArriveListeners();
+    
+    // ONLY activate the UI and the AI loop if this frame actually contains the chat!
+    const containerSelector = siteConfig.selectors.container || siteConfig.selectors.video;
+    
+    if (document.querySelector(containerSelector)) {
+        activateUi();
+    } else {
+        document.arrive(containerSelector, { existing: false, onceOnly: true }, function() {
+            activateUi();
+        });
+    }
+  }
+
+  let uiActivated = false;
+  function activateUi() {
+    if (uiActivated) return;
+    uiActivated = true;
+    
+    console.log(`[Navigator] Chat container confirmed. Activating UI and logic in this frame.`);
+    setupHotkeys();
     createOverlay();
     setupMessageListeners();
+    
+    if (detectorEnabled) {
+        startDetectionLoop();
+    }
   }
 
   // 2. UI Overlay for IP/Rizz Info
