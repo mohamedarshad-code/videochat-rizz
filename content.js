@@ -93,53 +93,9 @@
   // ─── SHARED UTILITIES ─────────────────────────────────────────────────────────
   // (ICE injection now handled globally by ice_relay.js)
 
-  // ─── UI OVERLAY (MAIN FRAME ONLY) ─────────────────────────────────────────────
-
-  function createOverlay() {
-    if (document.getElementById('navigator-overlay')) return;
-
-    infoOverlay = document.createElement('div');
-    infoOverlay.id = 'navigator-overlay';
-    infoOverlay.innerHTML = `
-      <div class="nav-header"> Navigator IP Tracker </div>
-      <div id="nav-ip-info">Waiting for connection...</div>
-      <div id="nav-geo-info"></div>
-      <div id="nav-ai-status" style="margin-top: 8px; font-size: 11px; color: #94a3b8;">AI Scanner: <span id="ai-state-text">OFF</span></div>
-      <div id="nav-rizz-suggestion"></div>
-    `;
-
-    Object.assign(infoOverlay.style, {
-      position: 'fixed',
-      top: '10px',
-      right: '10px',
-      width: '240px',
-      backgroundColor: 'rgba(15, 23, 42, 0.9)',
-      color: '#fff',
-      padding: '12px',
-      borderRadius: '12px',
-      fontSize: '13px',
-      zIndex: '999999',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
-      boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-      border: '1px solid rgba(255,255,255,0.1)',
-      backdropFilter: 'blur(8px)',
-      transition: 'all 0.3s ease'
-    });
-
-    document.body.appendChild(infoOverlay);
-
-    const style = document.createElement('style');
-    style.id = 'navigator-styles';
-    style.textContent = `
-      #navigator-overlay .nav-header { font-weight: bold; margin-bottom: 8px; color: #38bdf8; border-bottom: 1px solid #334155; padding-bottom: 4px; }
-      #navigator-overlay div { margin-top: 4px; }
-      .nav-label { color: #94a3b8; font-size: 11px; }
-      .nav-value { font-weight: 500; color: #f8fafc; }
-      .ai-scanning { color: #fbbf24 !important; }
-      .ai-detected { color: #10b981 !important; font-weight: bold; }
-    `;
-    document.head.appendChild(style);
-  }
+  // ─── UI OVERLAY ────────────────────────────────────────────────────────────
+  // Overlay removed — IP/AI status now shown in the popup side panel.
+  function createOverlay() { /* No longer used */ }
 
   // ─── HOTKEYS (MAIN FRAME ONLY) ─────────────────────────────────────────────────
 

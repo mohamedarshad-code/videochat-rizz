@@ -51,6 +51,66 @@ document.addEventListener('DOMContentLoaded', async () => {
       topAlert.style.display = 'none';
     }
   });
+
+  // ── IP TRACKER PANEL ──────────────────────────────────────────────────────
+  const panelIp = document.getElementById('panel-ip');
+  const panelLocation = document.getElementById('panel-location');
+  const panelIsp = document.getElementById('panel-isp');
+  const panelAiText = document.getElementById('panel-ai-text');
+  const panelRizzTip = document.getElementById('panel-rizz-tip');
+
+  function updateTrackerPanel() {
+    chrome.storage.local.get(['lastTrackerData', 'detectorEnabled', 'skipPreference'], (res) => {
+      const data = res.lastTrackerData;
+      if (data && data.ip) {
+        panelIp.innerHTML = `<span class="tl">IP Address:</span> <span class="tv">${data.ip}</span>`;
+        panelIp.classList.remove('tracker-waiting');
+
+        if (data.geo && data.geo.status !== 'fail') {
+          const g = data.geo;
+          const city = g.city || '';
+          const country = g.country || '';
+          const flag = g.countryCode ? getFlagEmoji(g.countryCode) : '';
+          panelLocation.innerHTML = `<span class="tl">Location:</span> <span class="tv">${flag} ${city}${city && country ? ', ' : ''}${country}</span>`;
+          panelIsp.innerHTML = `<span class="tl">ISP:</span> <span class="tv">${g.isp || ''}</span>`;
+
+          // Show a Rizz tip based on country
+          if (g.countryCode && !panelRizzTip.dataset.shown) {
+            chrome.runtime.sendMessage({ type: 'GET_COUNTRY_RIZZ', lang: g.countryCode.toLowerCase() }, (lines) => {
+              if (lines && lines.length > 0) {
+                const line = lines[Math.floor(Math.random() * lines.length)];
+                panelRizzTip.innerHTML = `<div class="tl" style="color:#fb7185;margin-bottom:4px">💬 Rizz Tip</div><div style="font-style:italic;color:#e2e8f0">${line}</div>`;
+                panelRizzTip.style.display = 'block';
+                panelRizzTip.dataset.shown = '1';
+              }
+            });
+          }
+        }
+      }
+
+      // AI scanner status
+      const active = res.detectorEnabled;
+      const pref = res.skipPreference;
+      if (active && pref && pref !== 'none') {
+        panelAiText.textContent = `ON — Skipping ${pref === 'male' ? 'Men' : 'Women'}`;
+        panelAiText.style.color = '#10b981';
+      } else if (active) {
+        panelAiText.textContent = 'ON (Scanning...)';
+        panelAiText.style.color = '#fbbf24';
+      } else {
+        panelAiText.textContent = 'OFF';
+        panelAiText.style.color = '#94a3b8';
+      }
+    });
+  }
+
+  function getFlagEmoji(countryCode) {
+    const c = countryCode.toUpperCase();
+    return String.fromCodePoint(...[...c].map(l => 0x1F1E6 - 65 + l.charCodeAt(0)));
+  }
+
+  updateTrackerPanel();
+  setInterval(updateTrackerPanel, 3000); // Refresh every 3s
   
   const rizzContent = document.getElementById('rizz-content');
   const countrySelect = document.getElementById('country-select');

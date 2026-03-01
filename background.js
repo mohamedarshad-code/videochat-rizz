@@ -83,9 +83,30 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const url = `http://ip-api.com/json/${request.ip}?fields=status,message,country,countryCode,regionName,city,isp,query`;
     fetch(url)
       .then(res => res.json())
-      .then(data => sendResponse(data))
+      .then(data => {
+        if (data.status !== 'fail') {
+          // Cache in local storage so popup can retrieve it
+          chrome.storage.local.set({ lastTrackerData: { ip: request.ip, geo: data } });
+        }
+        sendResponse(data);
+      })
       .catch(err => sendResponse({ status: "fail", message: err.message }));
     return true;
+  }
+
+  // Relay IP from cross-origin iframes (ice_relay.js can't postMessage to top)
+  if (request.type === "RELAY_IP") {
+    const ip = request.ip;
+    if (!ip) return;
+    const url = `http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,regionName,city,isp,query`;
+    fetch(url)
+      .then(res => res.json())
+      .then(data => {
+        if (data.status !== 'fail') {
+          chrome.storage.local.set({ lastTrackerData: { ip, geo: data } });
+        }
+      })
+      .catch(() => {});
   }
 });
 
