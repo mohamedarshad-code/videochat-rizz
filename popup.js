@@ -185,8 +185,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     card.setAttribute('role', 'button');
     card.setAttribute('tabindex', '0');
 
-    // Create badges HTML
-    const badgesHtml = site.tags.slice(0, 2).map(tag => `<span class="badge">${tag}</span>`).join('');
+    const tags = site.tags || [];
+    const badgesHtml = tags.slice(0, 2).map(tag => `<span class="badge">${tag}</span>`).join('');
 
     card.innerHTML = `
       <div class="site-header">
@@ -563,10 +563,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (tabSites.classList.contains('active')) {
-      const results = window.SITES_DATA.filter(site => 
+      const results = window.DISCOVER_SITES.filter(site => 
         site.name.toLowerCase().includes(query) || 
-        site.description.toLowerCase().includes(query) ||
-        site.tags.some(tag => tag.toLowerCase().includes(query))
+        (site.description || '').toLowerCase().includes(query) ||
+        (site.tags || []).some(tag => tag.toLowerCase().includes(query))
       );
       updateDisplay(results);
     } else {
@@ -600,6 +600,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   initTrendingTopics(); // Load topics from HF dataset
 
   // Badge count on icon
-  chrome.action.setBadgeText({ text: window.SITES_DATA.length.toString() });
+  chrome.action.setBadgeText({ text: window.DISCOVER_SITES.length.toString() });
   chrome.action.setBadgeBackgroundColor({ color: '#58a6ff' });
 });
