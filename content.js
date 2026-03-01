@@ -159,12 +159,37 @@
     });
 
     window.addEventListener('message', (event) => {
+      // 1. IP found directly (legacy or other scripts)
       if (event.data && event.data.type === 'IP_FOUND') {
         const ip = event.data.ip;
         if (ip === currentIp) return;
         currentIp = ip;
         updateIpDisplay(ip);
         geolocate(ip);
+      }
+      
+      // 2. Parse IP from intercepted WebRTC ICE candidates
+      if (event.data && event.data.type === 'ICE_CANDIDATE') {
+        const candidateStr = event.data.candidate || "";
+        // Simple regex to match an IPv4 address
+        const ipRegex = /([0-9]{1,3}(\.[0-9]{1,3}){3})/;
+        const match = candidateStr.match(ipRegex);
+        
+        if (match) {
+          const ip = match[1];
+          // Filter out local, private, or loopback IPs
+          const isLocal = ip.startsWith('192.168.') || 
+                          ip.startsWith('10.') || 
+                          ip.match(/^172\.(1[6-9]|2[0-9]|3[0-1])\./) || 
+                          ip === '0.0.0.0' || 
+                          ip.startsWith('127.');
+          
+          if (!isLocal && ip !== currentIp) {
+            currentIp = ip;
+            updateIpDisplay(ip);
+            geolocate(ip);
+          }
+        }
       }
     });
   }
@@ -202,8 +227,18 @@
     detectionInterval = setInterval(async () => {
       if (isProcessing || !detectorEnabled || skipPreference === 'none') return;
       
-      const video = document.querySelector(siteConfig.selectors.video);
-      if (!video || video.paused || video.readyState < 2) return;
+      // Try configured selector first
+      let video = document.querySelector(siteConfig.selectors.video);
+      
+      // Fallback: If no video is found using the selector, dynamically find the remote video.
+      // Remote videos are typically unmuted, or they are the second video element in the DOM.
+      if (!video) {
+        const allVideos = Array.from(document.querySelectorAll('video'));
+        // Find the first video that is NOT muted, otherwise default to the second video if it exists.
+        video = allVideos.find(v => !v.muted) || allVideos[1] || allVideos[0];
+      }
+
+      if (!video || video.paused || video.readyState < 2 || video.videoWidth === 0) return;
 
       isProcessing = true;
       try {
