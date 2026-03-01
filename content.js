@@ -42,10 +42,7 @@
 
   function initMainFrame() {
     console.log(`[Navigator] Main frame init for ${siteConfig.name}`);
-    
-    // Inject ICE interceptor into the main page context
-    injectIceInterceptor();
-
+    // ICE interception is handled globally by ice_relay.js on all frames
     chrome.storage.local.get(['detectorEnabled', 'skipPreference'], (res) => {
       detectorEnabled = res.detectorEnabled || false;
       skipPreference = res.skipPreference || 'none';
@@ -65,18 +62,7 @@
     const run = () => {
       if (!document.querySelector('video') && !document.querySelector('canvas')) return;
       console.log(`[Navigator] Sub-frame init for ${siteConfig.name} (has video)`);
-      
-      // Inject ICE interceptor inside this iframe too
-      injectIceInterceptor();
-
-      // Listen for ICE candidates captured inside this iframe and relay to main frame
-      window.addEventListener('message', (event) => {
-        if (event.data && event.data.type === 'ICE_CANDIDATE') {
-          // Bubble the ICE candidate up to the parent (main frame)
-          window.parent.postMessage(event.data, '*');
-        }
-      });
-
+      // Note: ICE interception is handled globally by ice_relay.js
       // Run AI detection in the iframe and post gender results to parent
       chrome.storage.local.get(['detectorEnabled', 'skipPreference'], (res) => {
         detectorEnabled = res.detectorEnabled || false;
@@ -105,13 +91,7 @@
   }
 
   // ─── SHARED UTILITIES ─────────────────────────────────────────────────────────
-
-  function injectIceInterceptor() {
-    const script = document.createElement('script');
-    script.src = chrome.runtime.getURL('inject.js');
-    script.onload = () => script.remove();
-    (document.head || document.documentElement).appendChild(script);
-  }
+  // (ICE injection now handled globally by ice_relay.js)
 
   // ─── UI OVERLAY (MAIN FRAME ONLY) ─────────────────────────────────────────────
 
@@ -206,7 +186,10 @@
       // Direct IP from some scripts
       if (data.type === 'IP_FOUND') handleCandidateIp(data.ip);
 
-      // WebRTC ICE candidates from main frame OR relayed from iframes
+      // IP relayed from an iframe by ice_relay.js (cross-origin safe)
+      if (data.type === 'NAVIGATOR_IP_FOUND') handleCandidateIp(data.ip);
+
+      // WebRTC ICE candidates from the main frame itself
       if (data.type === 'ICE_CANDIDATE') {
         const candidateStr = data.candidate || '';
         const match = candidateStr.match(/([0-9]{1,3}(?:\.[0-9]{1,3}){3})/);

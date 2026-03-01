@@ -95,11 +95,17 @@
       "js": ["libs/arrive.min.js", "libs/face-api.min.js", "sites.js", "content.js"],
       "run_at": "document_start",
       "all_frames": true
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["ice_relay.js"],
+      "run_at": "document_start",
+      "all_frames": true
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["inject.js", "models/*"],
+      "resources": ["inject.js", "ice_relay.js", "models/*"],
       "matches": ["<all_urls>"]
     }
   ],
