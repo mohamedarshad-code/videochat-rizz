@@ -36,14 +36,20 @@ function sanitizeDataset(data) {
 }
 
 async function fetchDataset() {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
   try {
-    const response = await fetch(HF_API_URL);
-    if (!response.ok) throw new Error("HF Fetch error");
+    const response = await fetch(HF_API_URL, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) throw new Error(`HF Fetch error: ${response.status}`);
     const data = await response.json();
     return sanitizeDataset(data);
   } catch (error) {
-    console.error("Dataset fetch failed:", error);
-    return [];
+    clearTimeout(timeoutId);
+    console.error("[Navigator] Dataset fetch failed:", error.name === 'AbortError' ? 'Timeout' : error.message);
+    return { error: true, status: "fail", message: error.message };
   }
 }
 

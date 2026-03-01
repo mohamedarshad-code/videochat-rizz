@@ -15,6 +15,17 @@
   let isProcessing = false;
   let modelsLoaded = false;
 
+  // Frame filtering: Only run UI/Logic in the main frame or frames with video
+  if (window.top !== window && !document.querySelector('video') && !document.querySelector('canvas')) {
+    // Check again after a short delay for dynamic video elements
+    setTimeout(() => {
+      if (document.querySelector('video') || document.querySelector('canvas')) {
+        init();
+      }
+    }, 5000);
+    return;
+  }
+
   // 1. Initialization
   function init() {
     siteConfig = window.getSiteConfig ? window.getSiteConfig() : null;
@@ -163,11 +174,13 @@
     if (modelsLoaded) return true;
     updateAiStatusUI("Loading AI...");
     try {
-      const MODEL_URL = chrome.runtime.getURL('/models');
-      await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-        faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL)
-      ]);
+      // Use 'models' without a leading slash for getURL
+      const MODEL_URL = chrome.runtime.getURL('models');
+      console.log(`[Navigator] Loading models from: ${MODEL_URL}`);
+      
+      await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+      await faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL);
+      
       modelsLoaded = true;
       console.log("[Navigator] AI Models loaded successfully.");
       return true;
