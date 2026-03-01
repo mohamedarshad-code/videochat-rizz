@@ -115,8 +115,35 @@
 
   function skip() {
     if (!siteConfig) return;
-    const btn = document.querySelector(siteConfig.selectors.stop);
-    if (btn) btn.click();
+    
+    // Strategy 1: Try configured CSS selector
+    let btn = document.querySelector(siteConfig.selectors.stop);
+    
+    // Strategy 2: Look for "Next" button first (better than "Stop" for auto-skip flow)
+    if (!btn) {
+      const allBtns = Array.from(document.querySelectorAll('button, [role="button"]'));
+      // Prefer Next/Skip button — don't stop the session, go to next stranger
+      btn = allBtns.find(b => {
+        const text = (b.textContent || b.innerText || b.value || '').toLowerCase().trim();
+        return text === 'next' || text === 'skip' || text === 'siguiente' || text === 'weiter';
+      });
+    }
+    
+    // Strategy 3: Fallback to Stop button if no Next found
+    if (!btn) {
+      const allBtns = Array.from(document.querySelectorAll('button, [role="button"]'));
+      btn = allBtns.find(b => {
+        const text = (b.textContent || b.innerText || '').toLowerCase().trim();
+        return text === 'stop' || text === 'new' || text === 'start';
+      });
+    }
+    
+    if (btn) {
+      console.log('[Navigator] Auto-skipping via button:', btn.textContent.trim());
+      btn.click();
+    } else {
+      console.warn('[Navigator] Skip failed: no suitable button found.');
+    }
   }
 
   // ─── MESSAGE HANDLING (MAIN FRAME ONLY) ────────────────────────────────────────
@@ -155,11 +182,14 @@
       // Gender detection result relayed from an iframe
       if (data.type === 'NAVIGATOR_GENDER_DETECTED') {
         const { gender } = data;
-        updateAiStatusUI(`Detected: ${gender.toUpperCase()}`, true);
-        if (gender === skipPreference) {
-          updateAiStatusUI(`Skipping ${gender}...`, true);
-          setTimeout(() => skip(), 500);
-        }
+        // Re-read skipPreference from storage to ensure it's fresh
+        chrome.storage.local.get(['skipPreference'], (res) => {
+          skipPreference = res.skipPreference || 'none';
+          if (skipPreference !== 'none' && gender === skipPreference) {
+            console.log(`[Navigator] Iframe detected ${gender}, skipping...`);
+            setTimeout(() => skip(), 500);
+          }
+        });
       }
     });
   }
@@ -218,7 +248,7 @@
   }
 
   async function runDetection() {
-    if (isProcessing || !detectorEnabled || skipPreference === 'none') return;
+    if (isProcessing || !detectorEnabled) return;
     const video = findRemoteVideo();
     if (!video) return;
     isProcessing = true;
@@ -226,11 +256,16 @@
       const result = await captureAndDetect(video);
       if (result) {
         const gender = result.label.toLowerCase();
-        updateAiStatusUI(`Detected: ${gender.toUpperCase()}`, true);
-        if (gender === skipPreference) {
-          updateAiStatusUI(`Skipping ${gender}...`, true);
-          setTimeout(() => skip(), 500);
-        }
+        console.log(`[Navigator] Detected: ${gender} (${(result.score * 100).toFixed(0)}%)`);
+        
+        // Read fresh preference from storage
+        chrome.storage.local.get(['skipPreference'], (res) => {
+          const pref = res.skipPreference || 'none';
+          if (pref !== 'none' && gender === pref) {
+            console.log(`[Navigator] Match! ${gender} === ${pref}. Skipping...`);
+            setTimeout(() => skip(), 300);
+          }
+        });
       }
     } catch (e) { console.error('[Navigator] Detection error:', e); }
     finally { isProcessing = false; }

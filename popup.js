@@ -499,7 +499,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     siteSearch.value = ''; // Reset search on new set
 
     setTimeout(() => {
-      let filtered = [...window.SITES_DATA];
+      let filtered = [...window.DISCOVER_SITES];
       if (excludeSite) {
         filtered = filtered.filter(s => s.name !== excludeSite.name);
       }
