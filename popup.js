@@ -9,11 +9,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // They are non-module scripts, so they should be done before DOMContentLoaded.
   // If somehow they're not ready, poll briefly.
   let retries = 0;
-  while ((!window.RIZZ_DATA || !window.RIZZ_CATEGORIES || !window.SITES_DATA) && retries < 20) {
+  while ((!window.RIZZ_DATA || !window.RIZZ_CATEGORIES || !window.DISCOVER_SITES) && retries < 20) {
     await new Promise(r => setTimeout(r, 50));
     retries++;
   }
-  if (!window.RIZZ_DATA || !window.RIZZ_CATEGORIES || !window.SITES_DATA) {
+  if (!window.RIZZ_DATA || !window.RIZZ_CATEGORIES || !window.DISCOVER_SITES) {
     console.error('[Navigator] CRITICAL: Data scripts failed to load. Popup will not work.');
     document.body.innerHTML = '<div style="padding:20px;color:#f87171;">Error: Extension data files failed to load. Please try reloading the extension.</div>';
     return;
@@ -91,9 +91,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       const url = new URL(tab.url);
       const hostname = url.hostname.toLowerCase();
       
-      // Match against known domains
-      const match = window.SITES_DATA.find(site => {
-        return hostname.includes(site.domain) || site.domain.includes(hostname);
+      // Match against known domains from DISCOVER_SITES
+      const match = window.DISCOVER_SITES.find(site => {
+        try {
+          const siteHostname = new URL(site.url).hostname;
+          return hostname.includes(siteHostname) || siteHostname.includes(hostname);
+        } catch(e) { return false; }
       });
 
       if (match) {
@@ -175,34 +178,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   getCountryRizzBtn.addEventListener('click', handleCountryRizz);
 
-  // AI Detection Toggle
+  // AI Detection Toggle — save to storage first, then try to message content script
   detectorToggle.addEventListener('change', (e) => {
     const active = e.target.checked;
+    chrome.storage.local.set({ detectorEnabled: active });
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]) {
-        chrome.tabs.sendMessage(tabs[0].id, { 
-          type: "TOGGLE_DETECTOR", 
-          active: active 
-        });
+        chrome.tabs.sendMessage(tabs[0].id, { type: "TOGGLE_DETECTOR", active: active }).catch(() => {});
       }
     });
-    // Persist setting
-    chrome.storage.local.set({ detectorEnabled: active });
   });
 
-  // Skip Logic
+  // Skip Logic — save to storage first, then message content script
   skipRadios.forEach(radio => {
     radio.addEventListener('change', (e) => {
       const skipValue = e.target.value;
       chrome.storage.local.set({ skipPreference: skipValue });
-      
-      // Update current tab
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0]) {
-          chrome.tabs.sendMessage(tabs[0].id, { 
-            type: "UPDATE_SKIP_PREF", 
-            pref: skipValue 
-          });
+          chrome.tabs.sendMessage(tabs[0].id, { type: "UPDATE_SKIP_PREF", pref: skipValue }).catch(() => {});
         }
       });
     });
