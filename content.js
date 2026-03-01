@@ -1,126 +1,288 @@
 /**
- * content.js - Gender Detection & Auto-Skip Module
- * Monitors video chats and automatically skips based on user preference.
+ * content.js - LiveChat Navigator
+ * Performance-optimized video chat integration using arrive.js
  */
 
-let isDetectionActive = false;
-let skipPreference = 'none'; // 'none', 'male', 'female'
-let detectionInterval = null;
-
-// Selectors for popular random chat platforms
-const SITE_SELECTORS = {
-  'ometv.com': { next: '.chat-v__control-btn[data-type="next"]' },
-  'minichat.com': { next: '.chat-v__control-btn[data-type="next"]' },
-  'chatrandom.com': { next: '#next_btn' },
-  'camsurf.com': { next: '.next-button' },
-  'emeraldchat.com': { next: 'button.emerald-button' }, // General guess
-  'uhmegle.com': { next: 'button:contains("Next")' }
-};
-
-const createOverlay = () => {
-  let div = document.getElementById('gender-scanner-overlay');
-  if (div) return div;
-  div = document.createElement('div');
-  div.id = 'gender-scanner-overlay';
-  div.style.cssText = `
-    position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8);
-    color: white; padding: 8px 12px; border-radius: 8px; font-family: monospace;
-    font-size: 12px; z-index: 2147483647; border: 1px solid #58a6ff;
-    display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-  `;
-  document.body.appendChild(div);
-  return div;
-};
-
-const overlay = createOverlay();
-
-const getNextButton = () => {
-  const host = window.location.hostname;
-  for (const [domain, selectors] of Object.entries(SITE_SELECTORS)) {
-    if (host.includes(domain)) {
-      return document.querySelector(selectors.next);
-    }
-  }
-  // Fallback: search for buttons with "Next" or "Skip"
-  return Array.from(document.querySelectorAll('button, div[role="button"]'))
-    .find(el => {
-      const txt = el.innerText.toLowerCase();
-      return txt.includes('next') || txt.includes('skip');
-    });
-};
-
-const triggerSkip = () => {
-  const nextBtn = getNextButton();
-  if (nextBtn) {
-    console.log('LiveChat Navigator: Triggering auto-skip...');
-    overlay.querySelector('span').textContent = 'AUTO-SKIPPING...';
-    overlay.style.borderColor = '#f85149';
-    nextBtn.click();
-  }
-};
-
-const captureAndScan = async () => {
-  if (!isDetectionActive) return;
-
-  const videos = Array.from(document.querySelectorAll('video'));
-  const remoteVideo = videos.filter(v => v.videoWidth > 100 && v.className.toLowerCase().includes('remote'))[0] 
-                    || videos.find(v => v.videoWidth > 0 && v.offsetParent !== null);
-
-  if (!remoteVideo) return;
-
-  const canvas = document.createElement('canvas');
-  canvas.width = 224; canvas.height = 224; // Standard model input
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(remoteVideo, 0, 0, 224, 224);
+(function() {
+  let siteConfig = null;
+  let currentIp = null;
+  let infoOverlay = null;
   
-  const imageData = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+  // AI Detection State
+  let detectorEnabled = false;
+  let skipPreference = 'none'; // 'none', 'male', 'female'
+  let detectionInterval = null;
+  let isProcessing = false;
+  let modelsLoaded = false;
 
-  overlay.style.display = 'block';
-  overlay.innerHTML = 'SCANNER: <span>Analyzing...</span>';
+  // 1. Initialization
+  function init() {
+    siteConfig = window.getSiteConfig ? window.getSiteConfig() : null;
+    if (!siteConfig) return;
 
-  chrome.runtime.sendMessage({ type: "DETECT_GENDER", image: imageData }, (response) => {
-    if (!isDetectionActive) return;
+    console.log(`[Navigator] Initialized for ${siteConfig.name}`);
+    
+    // Inject ICE Interceptor
+    const script = document.createElement('script');
+    script.src = chrome.runtime.getURL('inject.js');
+    script.onload = () => script.remove();
+    (document.head || document.documentElement).appendChild(script);
 
-    if (response && Array.isArray(response)) {
-      const top = response.sort((a, b) => b.score - a.score)[0];
-      const gender = top.label.toLowerCase(); // 'male' or 'female'
-      const confidence = Math.round(top.score * 100);
-      
-      overlay.innerHTML = `SCANNER: <span style="color:${gender === 'female' ? '#ff7b72' : '#79c0ff'}">${gender.toUpperCase()} (${confidence}%)</span>`;
-      
-      // Auto-Skip logic: if found gender matches our skip preference and confidence is high (>70%)
-      if (skipPreference !== 'none' && gender === skipPreference && top.score > 0.7) {
-        setTimeout(triggerSkip, 1000); // Wait 1s before skip for realism
-      }
-    } else {
-      overlay.innerHTML = 'SCANNER: <span style="color:#f85149">ERROR / OFFLINE</span>';
-    }
-  });
-};
+    // Initial state from storage
+    chrome.storage.local.get(['detectorEnabled', 'skipPreference'], (res) => {
+      detectorEnabled = res.detectorEnabled || false;
+      skipPreference = res.skipPreference || 'none';
+      if (detectorEnabled) startDetectionLoop();
+    });
 
-// Initial state fetch
-chrome.storage.local.get(['detectorEnabled', 'skipPreference'], (data) => {
-  isDetectionActive = !!data.detectorEnabled;
-  skipPreference = data.skipPreference || 'none';
-  if (isDetectionActive) {
-    detectionInterval = setInterval(captureAndScan, 4000);
+    setupHotkeys();
+    setupArriveListeners();
+    createOverlay();
+    setupMessageListeners();
   }
-});
 
-chrome.runtime.onMessage.addListener((request) => {
-  if (request.type === "TOGGLE_DETECTOR") {
-    isDetectionActive = request.active;
-    if (isDetectionActive) {
-      if (!detectionInterval) detectionInterval = setInterval(captureAndScan, 4000);
-      captureAndScan(); 
-    } else {
+  // 2. UI Overlay for IP/Rizz Info
+  function createOverlay() {
+    if (document.getElementById('navigator-overlay')) return;
+
+    infoOverlay = document.createElement('div');
+    infoOverlay.id = 'navigator-overlay';
+    infoOverlay.innerHTML = `
+      <div class="nav-header"> Navigator IP Tracker </div>
+      <div id="nav-ip-info">Waiting for connection...</div>
+      <div id="nav-geo-info"></div>
+      <div id="nav-ai-status" style="margin-top: 8px; font-size: 11px; color: #94a3b8;">AI Scanner: <span id="ai-state-text">OFF</span></div>
+      <div id="nav-rizz-suggestion"></div>
+    `;
+
+    Object.assign(infoOverlay.style, {
+      position: 'fixed',
+      top: '10px',
+      right: '10px',
+      width: '240px',
+      backgroundColor: 'rgba(15, 23, 42, 0.9)',
+      color: '#fff',
+      padding: '12px',
+      borderRadius: '12px',
+      fontSize: '13px',
+      zIndex: '999999',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+      border: '1px solid rgba(255,255,255,0.1)',
+      backdropFilter: 'blur(8px)',
+      transition: 'all 0.3s ease'
+    });
+
+    document.body.appendChild(infoOverlay);
+
+    // Style for the header
+    const style = document.createElement('style');
+    style.id = 'navigator-styles';
+    style.textContent = `
+      #navigator-overlay .nav-header { font-weight: bold; margin-bottom: 8px; color: #38bdf8; border-bottom: 1px solid #334155; padding-bottom: 4px; }
+      #navigator-overlay div { margin-top: 4px; }
+      .nav-label { color: #94a3b8; font-size: 11px; }
+      .nav-value { font-weight: 500; color: #f8fafc; }
+      .ai-scanning { color: #fbbf24 !important; }
+      .ai-detected { color: #10b981 !important; font-weight: bold; }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // 3. Automation & Hotkeys
+  function setupHotkeys() {
+    document.addEventListener('keydown', (e) => {
+      if (!siteConfig) return;
+
+      // ESC to Skip
+      if (e.key === 'Escape') {
+        skip();
+      }
+
+      // F for Fullscreen Video
+      if (e.key.toLowerCase() === 'f') {
+        const video = document.querySelector(siteConfig.selectors.video);
+        if (video) {
+          if (video.requestFullscreen) video.requestFullscreen();
+          else if (video.webkitRequestFullscreen) video.webkitRequestFullscreen();
+        }
+      }
+    });
+  }
+
+  function skip() {
+    if (!siteConfig) return;
+    const btn = document.querySelector(siteConfig.selectors.stop);
+    if (btn) btn.click();
+  }
+
+  // 4. Efficient Element Detection via Arrive.js
+  function setupArriveListeners() {
+    if (!siteConfig.selectors.video) return;
+
+    document.arrive(siteConfig.selectors.video, { existing: true }, function(el) {
+      console.log("[Navigator] Remote video detected.");
+      el.addEventListener('loadedmetadata', () => {
+        // Triggered when video starts playing
+      });
+    });
+
+    if (siteConfig.selectors.container) {
+      document.arrive(siteConfig.selectors.container, { existing: true }, function(el) {
+         console.log("[Navigator] Chat container ready.");
+      });
+    }
+  }
+
+  // 5. Message Handling (from Background & Popup)
+  function setupMessageListeners() {
+    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+      if (msg.type === "TOGGLE_DETECTOR") {
+        detectorEnabled = msg.active;
+        if (detectorEnabled) startDetectionLoop();
+        else stopDetectionLoop();
+      }
+      if (msg.type === "UPDATE_SKIP_PREF") {
+        skipPreference = msg.pref;
+      }
+    });
+
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'IP_FOUND') {
+        const ip = event.data.ip;
+        if (ip === currentIp) return;
+        currentIp = ip;
+        updateIpDisplay(ip);
+        geolocate(ip);
+      }
+    });
+  }
+
+  // 6. AI Gender Detection Loop
+  async function loadModels() {
+    if (modelsLoaded) return true;
+    updateAiStatusUI("Loading AI...");
+    try {
+      const MODEL_URL = chrome.runtime.getURL('/models');
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL)
+      ]);
+      modelsLoaded = true;
+      console.log("[Navigator] AI Models loaded successfully.");
+      return true;
+    } catch (err) {
+      console.error("[Navigator] Model loading failed:", err);
+      updateAiStatusUI("AI Load Error", true);
+      return false;
+    }
+  }
+
+  async function startDetectionLoop() {
+    if (detectionInterval) return;
+    
+    const success = await loadModels();
+    if (!success) return;
+
+    updateAiStatusUI("ON (Scanning...)");
+    
+    detectionInterval = setInterval(async () => {
+      if (isProcessing || !detectorEnabled || skipPreference === 'none') return;
+      
+      const video = document.querySelector(siteConfig.selectors.video);
+      if (!video || video.paused || video.readyState < 2) return;
+
+      isProcessing = true;
+      try {
+        const result = await captureAndDetect(video);
+        if (result && result.length > 0) {
+          const topResult = result[0]; // {label: "male", score: 0.9}
+          const gender = topResult.label.toLowerCase();
+          
+          updateAiStatusUI(`Detected: ${gender.toUpperCase()}`, true);
+
+          if (gender === skipPreference) {
+            console.log(`[Navigator] Skipping ${gender} as per preference.`);
+            updateAiStatusUI(`Skipping ${gender}...`, true);
+            setTimeout(() => skip(), 500);
+          }
+        }
+      } catch (err) {
+        console.error("[Navigator] Detection error:", err);
+      } finally {
+        isProcessing = false;
+      }
+    }, 3000); // Check every 3 seconds for performance
+  }
+
+  function stopDetectionLoop() {
+    if (detectionInterval) {
       clearInterval(detectionInterval);
       detectionInterval = null;
-      overlay.style.display = 'none';
     }
+    updateAiStatusUI("OFF");
   }
-  if (request.type === "UPDATE_SKIP_PREF") {
-    skipPreference = request.pref;
-    console.log('LiveChat Navigator: Skip preference updated to', skipPreference);
+
+  function updateAiStatusUI(text, isResult = false) {
+    const el = document.getElementById('ai-state-text');
+    if (!el) return;
+    el.textContent = text;
+    el.className = isResult ? 'ai-detected' : 'ai-scanning';
+    if (text === "OFF") el.className = "";
   }
-});
+
+  async function captureAndDetect(video) {
+    if (!modelsLoaded) return null;
+
+    // Use TinyFaceDetector for performance
+    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 });
+    const detection = await faceapi.detectSingleFace(video, options).withAgeAndGender();
+    
+    if (detection) {
+      return [{
+        label: detection.gender,
+        score: detection.genderProbability
+      }];
+    }
+    return null;
+  }
+
+  // 7. IP & Geolocation
+  function updateIpDisplay(ip) {
+    const el = document.getElementById('nav-ip-info');
+    if (el) el.innerHTML = `<span class="nav-label">IP Address:</span> <span class="nav-value">${ip}</span>`;
+  }
+
+  function geolocate(ip) {
+    chrome.runtime.sendMessage({ type: "GEOLOCATE_IP", ip: ip }, (data) => {
+      if (data && data.status !== "fail") {
+        const geoEl = document.getElementById('nav-geo-info');
+        if (geoEl) {
+          geoEl.innerHTML = `
+            <div><span class="nav-label">Location:</span> <span class="nav-value">${data.city}, ${data.country}</span></div>
+            <div><span class="nav-label">ISP:</span> <span class="nav-value">${data.isp}</span></div>
+          `;
+        }
+        fetchRizz(data.countryCode.toLowerCase());
+      }
+    });
+  }
+
+  function fetchRizz(countryCode) {
+    chrome.runtime.sendMessage({ type: "GET_COUNTRY_RIZZ", lang: countryCode }, (lines) => {
+      const rizzEl = document.getElementById('nav-rizz-suggestion');
+      if (rizzEl && lines && lines.length > 0) {
+        const line = lines[Math.floor(Math.random() * lines.length)];
+        rizzEl.innerHTML = `<div class="nav-header" style="margin-top:10px; color:#fb7185">Rizz Tip</div><div style="font-style:italic">${line}</div>`;
+      }
+    });
+  }
+
+  // Self-start
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    init();
+  } else {
+    document.addEventListener('DOMContentLoaded', init);
+  }
+})();
+
